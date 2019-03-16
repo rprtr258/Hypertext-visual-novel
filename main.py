@@ -1,6 +1,8 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 import re
 import sys
-
 
 class State:
     def __init__(self, lines):
@@ -19,7 +21,6 @@ class State:
     def get_page(self):
         return self.lines
 
-
 def erase_comments(s):
     ptr = s.find('#')
     if ptr == -1:
@@ -28,10 +29,8 @@ def erase_comments(s):
         ptr -= 1
     return s[:ptr]
 
-
 def check_format(s):
     return "OK"
-
 
 def get_vars_declars(line):
     vars = {}
@@ -42,7 +41,6 @@ def get_vars_declars(line):
         var_value = int(declaration[index + 1:])
         vars[var_name] = var_value
     return vars
-
 
 def get_scenes(lines):
     scenes = []
@@ -60,11 +58,9 @@ def get_scenes(lines):
         scenes.append(curScene)
     return scenes
 
-
 def is_traverse(line):
     regex = (re.compile("\((ending|(.*;.*))\)")).match(line)
     return (not regex == None and regex.group() == line)
-
 
 def process_traverse(line):
     line = line[1:-1]
@@ -88,14 +84,12 @@ def process_traverse(line):
             dest = line[line.find(';') + 1:]
     return "<a href = \"%s.html\">%s</a>" % (dest, link_text)
 
-
 def process_page(page):
     page[0] = page[0][1:-1]
     for i in range(1, len(page)):
         if is_traverse(page[i]):
             page[i] = process_traverse(page[i])
     return page
-
 
 def create_htmls(pages):
     for page in pages:
@@ -105,10 +99,8 @@ def create_htmls(pages):
         with open("%s.html" % (title), "w") as htmlpage:
             htmlpage.write(HTMLBeginning + text + HTMLEnding)
 
-
 def proceed_states(states):
     return [state.get_page() for state in states]
-
 
 def isValid(expr, vars):
     mults = expr.split('|')
@@ -140,7 +132,6 @@ def isValid(expr, vars):
             return True
     return False
 
-
 def applyVarChanges(vars, varChange):
     if len(varChange) == 0:
         return vars
@@ -157,7 +148,6 @@ def applyVarChanges(vars, varChange):
             varName = change[:change.find('=')]
             vars[varName] = value
     return vars
-
 
 def traverse(title, vars, graph, s = ""):
     result = []
@@ -182,7 +172,6 @@ def traverse(title, vars, graph, s = ""):
     result.append(thisState)
     return result
 
-
 def convert_to_states(vars, scenes):
     scenes_dict = {scene[0][1: scene[0].find('}')]: scene for scene in scenes}
     states = traverse("beginning", vars, scenes_dict)
@@ -190,19 +179,21 @@ def convert_to_states(vars, scenes):
     states[-1][0] = 'ending'
     return [State(state) for state in states]
 
-
 def is_declaration_line(line):
     return line[0] == '[' and line[-1] == ']'
 
-
-HTMLBeginning = """<html>
-<head>
-	<title>Sample title</title>
-<meta http-equiv = "Content-Type" content = "text/html;charset=windows-1251">
-</head>
-<body bgcolor = #b3ffe5>\n"""
-HTMLEnding = """</body>
-</html>"""
+HTMLBeginning = """
+<html>
+    <head>
+        <title>Sample title</title>
+        <meta http-equiv = "Content-Type" content = "text/html;charset=utf-8">
+    </head>
+    <body bgcolor = #b3ffe5>
+"""
+HTMLEnding = """
+    </body>
+</html>
+"""
 
 if len(sys.argv) >= 2:
     filename = sys.argv[1]
