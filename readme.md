@@ -1,4 +1,4 @@
 Usage:
 ~~~~~~
-python main.py example.htvn
+python3 main.py example.htvn
 ~~~~~~
