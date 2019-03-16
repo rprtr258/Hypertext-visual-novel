@@ -51,37 +51,20 @@ def get_scenes(lines):
             if len(curScene) > 0:
                 scenes.append(curScene)
                 curScene = []
-            curScene.append(line)
-        else:
-            curScene.append(line)
+        curScene.append(line)
     if len(curScene) > 0:
         scenes.append(curScene)
     return scenes
 
 def is_traverse(line):
-    regex = (re.compile("\((ending|(.*;.*))\)")).match(line)
+    regex = (re.compile("\((ending|.*;.*;.*)\)")).match(line)
     return (not regex == None and regex.group() == line)
 
 def process_traverse(line):
     line = line[1:-1]
     if line == "ending":
         return "<a href = \"ending.html\">конец</a>"
-    link_text, expr, dest, var_changes = "", "", "", ""
-    link_text = line[:line.find(';')]
-    line += " "
-    if line.find('?') != -1:
-        expr = line[line.find(';'):line.find('?')]
-        if line.find(';', line.find(';') + 1) != -1:
-            dest = line[line.find('?') + 1:line.find(';', line.find(';') + 1)]
-            var_changes = line[line.find(';', line.find(';') + 1) + 1]
-        else:
-            dest = line[line.find('?') + 1:]
-    else:
-        if line.find(';', line.find(';') + 1) != -1:
-            dest = line[line.find(';') + 1:line.find(';', line.find(';') + 1)]
-            var_changes = line[line.find(';', line.find(';') + 1) + 1]
-        else:
-            dest = line[line.find(';') + 1:]
+    link_text, dest, var_changes = line.split(";")
     return "<a href = \"%s.html\">%s</a>" % (dest, link_text)
 
 def process_page(page):
@@ -149,11 +132,12 @@ def applyVarChanges(vars, varChange):
             vars[varName] = value
     return vars
 
-def traverse(title, vars, graph, s = ""):
+visited = set()
+def traverse(title, vars, graph, debug_intend = 0):
     result = []
     thisState = graph[title].copy()
     thisState[0] = thisState[0][1 : -1] + "".join(x + str(y) for x, y in vars.items())
-    print(s, thisState[0])
+    #print(debug_intend * 4 * " " + thisState[0])
     for i in range(len(thisState)):
         line = thisState[i]
         if not is_traverse(line):
@@ -161,14 +145,21 @@ def traverse(title, vars, graph, s = ""):
         if line == "(ending)":
             continue
         lst = line[1: -1].split(';')
-        newTitleButton, newTitle, varsChange = lst[0], lst[1], ""
-        if len(lst) > 2:
-            varsChange = lst[2]
-        destination = newTitle if newTitle.find('?') == -1 else newTitle[newTitle.find('?') + 1:]
-        if newTitle.find('?') == -1 or isValid(newTitle[:newTitle.find('?')], vars):
+        newTitleButton, transition, varsChange = lst[0], lst[1], lst[2]
+        destination = transition
+        going = True
+        if "?" in transition:
+            predicates, destination = transition.split("?")
+            going = isValid(predicates, vars)
+            #print(debug_intend * 4 * " ", vars, predicates, destination, going)
+        if going:
             newVars = applyVarChanges(vars.copy(), varsChange)
-            result += traverse(destination, newVars, graph, s + "    ")
-            thisState[i] = "(" + newTitleButton + ";" + destination + "".join(x + str(y) for x, y in vars.items()) + ';)'
+            thisState[i] = "(" + newTitleButton + ";" + destination + "".join(x + str(y) for x, y in newVars.items()) + ';)'
+            if not thisState[i] in visited:
+                visited.add(thisState[i])
+                result += traverse(destination, newVars, graph, debug_intend + 1)
+        else:
+            thisState[i] = ""
     result.append(thisState)
     return result
 
@@ -177,6 +168,7 @@ def convert_to_states(vars, scenes):
     states = traverse("beginning", vars, scenes_dict)
     states.append(scenes_dict['ending'])
     states[-1][0] = 'ending'
+    #print("\n".join(map(str, states)))
     return [State(state) for state in states]
 
 def is_declaration_line(line):
@@ -195,27 +187,23 @@ HTMLEnding = """
 </html>
 """
 
-if len(sys.argv) >= 2:
-    filename = sys.argv[1]
-    # try:
-    with open(filename, "r", encoding = 'utf-8') as inputFile:
-        lines = [erase_comments(line) for line in inputFile.read().split("\n") if line != ""]
-        compileStatus = check_format(lines)
-        if compileStatus == "OK":
-            vars = {}
-            if len(lines) > 0 and is_declaration_line(lines[0]):
-                vars = get_vars_declars(lines[0])
-                lines = lines[1:]
-            scenes = get_scenes(lines)
-            states = convert_to_states(vars, scenes)
-            # for s in states:
-            #     print(s)
-            #     print()
-            htmlPages = proceed_states(states)
-            create_htmls(htmlPages)
-        else:
-            print(compileStatus)
-    # except:
-    #    print("No file %s" % (filename))
-else:
+if len(sys.argv) < 2:
     print("Specify the file")
+    exit(1)
+
+filename = sys.argv[1]
+with open(filename, "r", encoding = 'utf-8') as inputFile:
+	lines = [erase_comments(line) for line in inputFile.read().split("\n")]
+	lines = [line for line in lines if line != ""]
+	compileStatus = check_format(lines)
+	if compileStatus == "OK":
+		vars = {}
+		if len(lines) > 0 and is_declaration_line(lines[0]):
+			vars = get_vars_declars(lines[0])
+			lines = lines[1:]
+		scenes = get_scenes(lines)
+		states = convert_to_states(vars, scenes)
+		htmlPages = proceed_states(states)
+		create_htmls(htmlPages)
+	else:
+		print(compileStatus)
